@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>夜の商店街・4人対戦パーティ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js",
+          "firebase/auth": "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js",
+          "firebase/firestore": "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"
+        }
+      }
+    </script>
+    <style>
+        body {
+            background-color: #05080f;
+            color: #f8fafc;
+            font-family: 'Courier New', Courier, monospace;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        canvas { display: block; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-between h-screen w-screen p-2 box-border">
+
+    <!-- ヘッダー -->
+    <div class="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-xl p-2 flex justify-between items-center shadow-lg shrink-0 z-10">
+        <div>
+            <h1 class="text-xs font-extrabold text-amber-400">🏮 誰でも参加可能・4人対戦パーティ</h1>
+            <p id="status-text" class="text-[10px] text-slate-400">接続中...</p>
+        </div>
+        <div id="game-stats" class="hidden flex gap-2 text-xs font-bold items-center">
+            <div class="bg-amber-950/60 px-2 py-0.5 rounded border border-amber-600 text-amber-300">
+                🪙 <span id="coin-disp">0</span>
+            </div>
+            <div id="heart-disp" class="bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-rose-400">
+                ❤️❤️❤️❤️❤️
+            </div>
+        </div>
+    </div>
+
+    <!-- メイン画面 -->
+    <div class="relative w-full max-w-lg aspect-[4/3] bg-slate-950 border-2 border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col items-center justify-center p-2 my-auto">
+        
+        <!-- TOP画面 -->
+        <div id="top-screen" class="flex flex-col items-center justify-center p-6 text-center w-full">
+            <h2 class="text-xl font-extrabold text-amber-400 mb-2">夜の商店街・盆踊りパーティ</h2>
+            <p class="text-xs text-slate-300 mb-6 leading-relaxed max-w-xs">
+                ボタンを押すだけで自動的に順次番号が割り振られ、対戦ロビーに参加できます。
+            </p>
+            <button id="join-btn" disabled class="bg-slate-800 text-slate-500 font-extrabold px-8 py-3.5 rounded-xl text-sm cursor-not-allowed">
+                接続準備中...
+            </button>
+        </div>
+
+        <!-- LOBBY画面 -->
+        <div id="lobby-screen" class="hidden flex flex-col items-center justify-center p-4 text-center w-full h-full">
+            <h2 class="text-base font-extrabold text-amber-400 mb-1">対戦ロビー</h2>
+            <p id="lobby-info" class="text-[10px] text-amber-300 mb-3 font-bold">あなたは割り当て中...</p>
+
+            <div class="grid grid-cols-2 gap-2 w-full max-w-md mb-6">
+                <div id="slot-1" class="p-3 rounded-xl border bg-slate-950 border-slate-800/60 flex flex-col items-center justify-center">
+                    <div class="text-xs font-bold text-amber-300 mb-1">ユーザー1</div>
+                    <span class="text-[10px] text-slate-600">空きスロット</span>
+                </div>
+                <div id="slot-2" class="p-3 rounded-xl border bg-slate-950 border-slate-800/60 flex flex-col items-center justify-center">
+                    <div class="text-xs font-bold text-amber-300 mb-1">ユーザー2</div>
+                    <span class="text-[10px] text-slate-600">空きスロット</span>
+                </div>
+                <div id="slot-3" class="p-3 rounded-xl border bg-slate-950 border-slate-800/60 flex flex-col items-center justify-center">
+                    <div class="text-xs font-bold text-amber-300 mb-1">ユーザー3</div>
+                    <span class="text-[10px] text-slate-600">空きスロット</span>
+                </div>
+                <div id="slot-4" class="p-3 rounded-xl border bg-slate-950 border-slate-800/60 flex flex-col items-center justify-center">
+                    <div class="text-xs font-bold text-amber-300 mb-1">ユーザー4</div>
+                    <span class="text-[10px] text-slate-600">空きスロット</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="exit-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer">退出する</button>
+                <button id="ready-btn" class="bg-amber-500 text-slate-950 font-extrabold px-6 py-2 rounded-xl text-xs shadow-lg cursor-pointer">準備OK！</button>
+            </div>
+        </div>
+
+        <!-- プレイ画面（4分割マルチビュー） -->
+        <div id="play-screen" class="hidden relative w-full h-full grid grid-cols-2 grid-rows-2 gap-1 p-1">
+            <div id="view-1" class="relative bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col items-center justify-center p-2">
+                <div class="absolute top-1 left-2 text-[10px] font-bold text-amber-300 bg-slate-950/80 px-2 py-0.5 rounded z-20">ユーザー1</div>
+                <span class="text-[10px] text-slate-500">不参加</span>
+            </div>
+            <div id="view-2" class="relative bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col items-center justify-center p-2">
+                <div class="absolute top-1 left-2 text-[10px] font-bold text-amber-300 bg-slate-950/80 px-2 py-0.5 rounded z-20">ユーザー2</div>
+                <span class="text-[10px] text-slate-500">不参加</span>
+            </div>
+            <div id="view-3" class="relative bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col items-center justify-center p-2">
+                <div class="absolute top-1 left-2 text-[10px] font-bold text-amber-300 bg-slate-950/80 px-2 py-0.5 rounded z-20">ユーザー3</div>
+                <span class="text-[10px] text-slate-500">不参加</span>
+            </div>
+            <div id="view-4" class="relative bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col items-center justify-center p-2">
+                <div class="absolute top-1 left-2 text-[10px] font-bold text-amber-300 bg-slate-950/80 px-2 py-0.5 rounded z-20">ユーザー4</div>
+                <span class="text-[10px] text-slate-500">不参加</span>
+            </div>
+
+            <!-- カウントダウン / 勝利発表オーバーレイ -->
+            <div id="overlay-msg" class="hidden absolute inset-0 bg-black/85 flex flex-col items-center justify-center z-40 p-4 text-center">
+                <h2 id="overlay-title" class="text-3xl font-black text-amber-400 tracking-wider mb-2">レディーゴー！</h2>
+                <p id="overlay-sub" class="text-xs text-slate-300"></p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 左右コントロール -->
+    <div id="controls" class="hidden w-full max-w-lg flex justify-between items-center px-6 pb-2 shrink-0 h-24 z-10">
+        <button id="left-btn" class="w-36 h-14 bg-slate-800 active:bg-slate-600 border border-slate-600 rounded-xl flex items-center justify-center text-lg text-white shadow-xl">⬅️ 左</button>
+        <button id="right-btn" class="w-36 h-14 bg-slate-800 active:bg-slate-600 border border-slate-600 rounded-xl flex items-center justify-center text-lg text-white shadow-xl">右 ➡️</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "firebase/app";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+        import { getFirestore, collection, doc, setDoc, onSnapshot } from "firebase/firestore";
+
+        let db, auth, myUserId = '';
+        let assignedUserNum = 0;
+        let isReady = false;
+        let appState = 'TOP';
+        let currentRoomId = 'public_open_room';
+        let playerLane = 1;
+        let hearts = 5;
+        let coins = 0;
+        let distance = 0;
+        let isDead = false;
+
+        try {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            signInAnonymously(auth).then(() => {
+                document.getElementById('status-text').innerText = '接続完了';
+                enableJoinButton();
+            }).catch(() => {
+                document.getElementById('status-text').innerText = 'オフラインモード';
+                enableJoinButton();
+            });
+
+            onAuthStateChanged(auth, user => {
+                if (user) myUserId = user.uid;
+            });
+        } catch(e) {
+            document.getElementById('status-text').innerText = 'スタンドアロン';
+            enableJoinButton();
+        }
+
+        function enableJoinButton() {
+            const btn = document.getElementById('join-btn');
+            btn.disabled = false;
+            btn.className = 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-8 py-3.5 rounded-xl text-sm shadow-lg transition active:scale-95 cursor-pointer';
+            btn.innerText = '🚀 すぐに対戦ロビーに参加する';
+        }
+
+        document.getElementById('join-btn').addEventListener('click', () => {
+            appState = 'LOBBY';
+            document.getElementById('top-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            startRoomSync();
+        });
+
+        document.getElementById('exit-btn').addEventListener('click', () => {
+            appState = 'TOP';
+            isReady = false;
+            assignedUserNum = 0;
+            isDead = false;
+            hearts = 5;
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('top-screen').classList.remove('hidden');
+        });
+
+        document.getElementById('ready-btn').addEventListener('click', () => {
+            isReady = !isReady;
+            const btn = document.getElementById('ready-btn');
+            if (isReady) {
+                btn.className = 'bg-emerald-600 text-white font-extrabold px-6 py-2 rounded-xl text-xs shadow-lg cursor-pointer';
+                btn.innerText = '準備OK解除';
+            } else {
+                btn.className = 'bg-amber-500 text-slate-950 font-extrabold px-6 py-2 rounded-xl text-xs shadow-lg cursor-pointer';
+                btn.innerText = '準備OK！';
+            }
+        });
+
+        document.getElementById('left-btn').addEventListener('click', () => { if (playerLane > 0 && !isDead) playerLane--; });
+        document.getElementById('right-btn').addEventListener('click', () => { if (playerLane < 2 && !isDead) playerLane++; });
+
+        function startRoomSync() {
+            if (!db || !myUserId) return;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const roomColRef = collection(db, 'artifacts', appId, 'public', 'data', `party_${currentRoomId}_players`);
+
+            // 定期データ送信（自分の状態を同期）
+            setInterval(() => {
+                if (appState === 'TOP') return;
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', `party_${currentRoomId}_players`, myUserId || 'local_user');
+                setDoc(ref, {
+                    userId: myUserId || 'local_user',
+                    assignedNum: assignedUserNum,
+                    lane: playerLane,
+                    distance: distance,
+                    hearts: hearts,
+                    coins: coins,
+                    isReady: isReady,
+                    isDead: isDead,
+                    lastUpdated: Date.now()
+                }, { merge: true }).catch(() => {});
+            }, 100);
+
+            // メンバーの参加順スロット割り振りと同期監視
+            onSnapshot(roomColRef, snapshot => {
+                const pMap = {};
+                const activeUsers = [];
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (Date.now() - data.lastUpdated < 6000) {
+                        pMap[data.userId] = data;
+                        activeUsers.push(data);
+                    }
+                });
+
+                // 参加日時順（ID順）にソートして一意の番号を割り当て
+                activeUsers.sort((a, b) => a.userId.localeCompare(b.userId));
+                
+                let myEntry = activeUsers.find(p => p.userId === (myUserId || 'local_user'));
+                if (myEntry) {
+                    let index = activeUsers.indexOf(myEntry);
+                    if (assignedUserNum === 0 && index >= 0 && index < 4) {
+                        assignedUserNum = index + 1;
+                    }
+                }
+
+                // ロビー画面の表示更新
+                if (appState === 'LOBBY') {
+                    const readyCount = activeUsers.filter(p => p.isReady).length;
+                    document.getElementById('lobby-info').innerText = `あなたは [ ユーザー${assignedUserNum || '?'} ] です（現在 ${activeUsers.length}人中 ${readyCount}人が準備OK）`;
+                    
+                    for (let i = 1; i <= 4; i++) {
+                        const slot = document.getElementById(`slot-${i}`);
+                        const userInSlot = activeUsers[i - 1];
+                        if (userInSlot) {
+                            slot.className = 'p-3 rounded-xl border bg-slate-900 border-slate-700 flex flex-col items-center justify-center';
+                            slot.innerHTML = `<div class="text-xs font-bold text-amber-300 mb-1">ユーザー${i}</div><div class="text-[10px] font-bold">${userInSlot.isReady ? '<span class="text-emerald-400">✨ 準備OK！</span>' : '<span class="text-amber-500">⏳ 待機中...</span>'}</div>`;
+                        } else {
+                            slot.className = 'p-3 rounded-xl border bg-slate-950 border-slate-800/60 flex flex-col items-center justify-center';
+                            slot.innerHTML = `<div class="text-xs font-bold text-amber-300 mb-1">ユーザー${i}</div><span class="text-[10px] text-slate-600">空きスロット</span>`;
+                        }
+                    }
+                }
+
+                // プレイ中の4分割画面更新
+                for (let i = 1; i <= 4; i++) {
+                    const view = document.getElementById(`view-${i}`);
+                    const userInSlot = activeUsers[i - 1];
+                    if (userInSlot) {
+                        const laneStr = userInSlot.lane === 0 ? '左' : userInSlot.lane === 1 ? '中央' : '右';
+                        const heartStr = '❤️'.repeat(Math.max(0, userInSlot.hearts));
+                        const deadStatus = userInSlot.isDead ? '<span class="text-rose-500 font-bold">[脱落]</span>' : `レーン: ${laneStr}`;
+                        view.innerHTML = `<div class="absolute top-1 left-2 text-[10px] font-bold text-amber-300 bg-slate-950/80 px-2 py-0.5 rounded z-20">ユーザー${i} ${deadStatus}</div><div class="text-center"><div class="text-3xl mb-1">${userInSlot.isDead ? '💀' : '🏃‍♂️'}</div><div class="text-xs text-slate-300 font-bold">コイン: ${userInSlot.coins}</div><div class="text-xs text-rose-400 mt-1">${heartStr}</div></div>`;
+                    } else {
+                        view.innerHTML = `<div class="absolute top-1 left-2 text-[10px] font-bold text-amber-300 bg-slate-950/80 px-2 py-0.5 rounded z-20">ユーザー${i}</div><span class="text-[10px] text-slate-500">不参加</span>`;
+                    }
+                }
+
+                // 【厳格な開始条件】「参加人数が2人以上」かつ「全員が準備OK（参加人数 ＝ 準備OKの人数）」のときだけゲーム開始
+                const totalCount = activeUsers.length;
+                const readyCount = activeUsers.filter(p => p.isReady).length;
+                if (totalCount >= 2 && readyCount === totalCount && appState === 'LOBBY') {
+                    appState = 'PLAYING';
+                    document.getElementById('lobby-screen').classList.add('hidden');
+                    document.getElementById('play-screen').classList.remove('hidden');
+                    document.getElementById('controls').classList.remove('hidden');
+                    document.getElementById('game-stats').classList.remove('hidden');
+                    
+                    const overlay = document.getElementById('overlay-msg');
+                    const title = document.getElementById('overlay-title');
+                    const sub = document.getElementById('overlay-sub');
+                    overlay.classList.remove('hidden');
+                    title.innerText = 'レディーゴー！';
+                    sub.innerText = '最後まで生き残れ！';
+                    setTimeout(() => { overlay.classList.add('hidden'); }, 1500);
+                }
+
+                // 勝敗判定（プレイ中のみ）
+                if (appState === 'PLAYING' && activeUsers.length > 0) {
+                    const aliveUsers = activeUsers.filter(p => !p.isDead && p.hearts > 0);
+                    if (aliveUsers.length === 0 && activeUsers.length > 0) {
+                        const overlay = document.getElementById('overlay-msg');
+                        const title = document.getElementById('overlay-title');
+                        const sub = document.getElementById('overlay-sub');
+                        overlay.classList.remove('hidden');
+                        title.innerText = 'ゲーム終了！';
+                        sub.innerText = '全員力尽きました…';
+                    } else if (activeUsers.length >= 2 && aliveUsers.length === 1) {
+                        const winner = aliveUsers[0];
+                        const winnerNum = activeUsers.indexOf(winner) + 1;
+                        const overlay = document.getElementById('overlay-msg');
+                        const title = document.getElementById('overlay-title');
+                        const sub = document.getElementById('overlay-sub');
+                        overlay.classList.remove('hidden');
+                        title.innerText = '🎉 勝利！';
+                        sub.innerText = `最後の勝者は [ ユーザー${winnerNum} ] です！`;
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
