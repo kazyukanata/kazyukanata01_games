@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>夜の商店街・ひたすら生き残れ！！</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            background-color: #05080f;
+            color: #f8fafc;
+            font-family: 'Courier New', Courier, monospace;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-between h-screen w-screen p-1.5 box-border">
+
+    <!-- ヘッダー / ステータス -->
+    <div class="w-full max-w-md bg-slate-900/90 border border-slate-700/80 rounded-xl px-2.5 py-1.5 flex justify-between items-center shadow-lg backdrop-blur shrink-0 z-10">
+        <div class="flex flex-col justify-center">
+            <!-- 距離と時間を1行に収めるため文字サイズをクラス調整 -->
+            <p id="score-indicator-line1" class="text-[9px] font-semibold text-slate-300 tracking-tight whitespace-nowrap">距離: 0m | 時間: 0秒</p>
+            <p id="score-indicator-line2" class="text-[10px] text-amber-400 font-bold tracking-tight">速度: 1.0x</p>
+        </div>
+        <div class="flex gap-2 items-center">
+            <div class="flex gap-1.5 text-xs font-bold items-center">
+                <div class="bg-gradient-to-r from-amber-700 via-yellow-600 to-amber-700 px-2 py-0.5 rounded-lg border border-yellow-300 text-yellow-100 shadow-[0_0_6px_rgba(234,179,8,0.3)] flex items-center gap-1">
+                    <span class="inline-block bg-yellow-400 text-amber-950 font-black rounded-full w-3.5 h-3.5 text-[9px] text-center leading-3.5 shadow-sm border border-yellow-200">￥</span> <span id="coin-display" class="text-white font-black text-xs drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">0</span>
+                </div>
+                <div class="bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-rose-400 text-[11px]">
+                    <span id="heart-display">❤️❤️❤️❤️</span>
+                </div>
+            </div>
+            <button id="pause-btn" class="bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border border-slate-600 px-2 py-1 rounded-lg text-xs font-bold text-slate-200 shadow cursor-pointer">
+                ⏸️ 一時中断
+            </button>
+        </div>
+    </div>
+
+    <!-- 3Dゲーム描画コンテナ -->
+    <div id="canvas-container" class="relative w-full max-w-md aspect-[1/1] bg-slate-950 border-2 border-slate-700/80 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center my-auto">
+        
+        <div id="carpet-banner" class="absolute top-2 inset-x-0 flex justify-center pointer-events-none opacity-0 transition-opacity duration-500 z-20">
+            <span id="banner-text" class="bg-gradient-to-r from-amber-400 via-purple-500 to-pink-500 text-slate-950 font-extrabold px-4 py-1 rounded-full text-xs shadow-xl animate-bounce">
+                ✨ ステージが切り替わります！ ✨
+            </span>
+        </div>
+
+        <div id="pause-overlay" class="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center z-40 hidden">
+            <h2 class="text-2xl font-extrabold text-amber-400 mb-4">ゲーム一時中断中</h2>
+            <p class="text-xs text-slate-300 mb-6">ゆっくり休憩できます。再開ボタンを押してください。</p>
+            <button id="resume-btn" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-6 py-3 rounded-xl text-sm shadow-lg transition transform active:scale-95 cursor-pointer">
+                ゲームを再開する
+            </button>
+        </div>
+
+        <!-- スタート画面 -->
+        <div id="overlay" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-30">
+            <h2 id="overlay-title" class="text-xl font-extrabold text-amber-400 mb-2">ひたすら生き残れ！！</h2>
+            <p id="overlay-desc" class="text-[11px] text-slate-300 mb-6 leading-relaxed max-w-xs">
+                ゾンビを回避しよう！<br>※スクショして自慢し合おう
+            </p>
+            <button id="action-btn" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-6 py-3 rounded-xl text-sm shadow-lg transition transform active:scale-95 cursor-pointer">
+                ゲームスタート
+            </button>
+        </div>
+    </div>
+
+    <!-- コントロールパネル -->
+    <div class="w-full max-w-md flex flex-col gap-2 shrink-0 z-10 pb-2">
+        <div id="weapon-panel" class="grid grid-cols-2 gap-2">
+            <button id="heal-btn" class="bg-rose-900/80 hover:bg-rose-800 active:bg-rose-700 border border-rose-500/60 rounded-xl py-2 px-3 flex flex-col items-center justify-center text-xs text-rose-200 shadow-md transition touch-none cursor-pointer">
+                <span class="font-bold text-sm">❤️ 体力回復</span>
+                <span id="heal-status" class="text-[10px] text-amber-400">10コイン / 1回復</span>
+            </button>
+            <button id="bow-btn" class="bg-emerald-900/80 hover:bg-emerald-800 active:bg-emerald-700 border border-emerald-500/60 rounded-xl py-2 px-3 flex flex-col items-center justify-center text-xs text-emerald-200 shadow-md transition touch-none cursor-pointer">
+                <span class="font-bold text-sm">🏹 弓矢 (遠隔)</span>
+                <span id="bow-status" class="text-[10px] text-amber-400">残り: 0 / 購入:10</span>
+            </button>
+        </div>
+
+        <div class="flex justify-between items-center px-2">
+            <button id="control-btn-1" class="w-36 h-14 bg-slate-800 active:bg-slate-600 border border-slate-600 rounded-xl flex items-center justify-center text-xl text-white shadow-xl touch-none">⬅️ 左</button>
+            <button id="control-btn-2" class="w-36 h-14 bg-slate-800 active:bg-slate-600 border border-slate-600 rounded-xl flex items-center justify-center text-xl text-white shadow-xl touch-none">右 ➡️</button>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer;
+        let gameState = 'START';
+        let stageMode = 1;
+        let distanceRun = 0;
+        let gameTime = 0;
+        let stageTimer = 0;
+        let timerInterval = null;
+
+        let playerSprite;
+        let playerLane = 1;
+        const lanes = [-2.0, 0, 2.0];
+        let playerTargetX = 0;
+        
+        let playerY2D = 0;
+        const heightLanes2D = [-1.8, 0.0, 1.8];
+        let currentHeightLaneIdx = 1;
+
+        let playerHearts = 4; // 初期体力を4個に変更
+        let stepCycle = 0;
+
+        let coinCount = 0;
+        let bowAmmo = 0;
+        let activeArrows = [];
+        let transitionProgress = 0;
+
+        let obstacleGroups = [];
+        let fallingZombies = [];
+        let zombieTexture, frogZombieTexture, wingedZombieTexture, fallingZombieTexture, coinTexture, arrowTexture;
+        let audioCtx = null;
+        let bgmInterval = null;
+
+        function startAudioEngine() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playCoinSE() {
+            if (!audioCtx) return;
+            try {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } catch (e) {}
+        }
+
+        function playHealSE() {
+            if (!audioCtx) return;
+            try {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+                osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            } catch (e) {}
+        }
+
+        function playHitSE() {
+            if (!audioCtx) return;
+            try {
+                let osc = audioCtx.createOscillator();
+                let oscGain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+                oscGain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+                oscGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.connect(oscGain);
+                oscGain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } catch (e) {}
+        }
+
+        function playAttackSE() {
+            if (!audioCtx) return;
+            try {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.12);
+            } catch (e) {}
+        }
+
+        function startBonodoriBGM() {
+            stopBGM();
+            startAudioEngine();
+            try {
+                let beatStep = 0;
+                bgmInterval = setInterval(() => {
+                    if (gameState !== 'PLAYING' || !audioCtx) return;
+                    let isDon = (beatStep % 4 === 0 || beatStep % 4 === 2);
+                    let drumOsc = audioCtx.createOscillator();
+                    let drumGain = audioCtx.createGain();
+                    drumOsc.type = isDon ? 'triangle' : 'sine';
+                    drumOsc.frequency.setValueAtTime(isDon ? 75 : 180, audioCtx.currentTime);
+                    drumOsc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.2);
+                    drumGain.gain.setValueAtTime(isDon ? 0.3 : 0.15, audioCtx.currentTime);
+                    drumGain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    drumOsc.connect(drumGain);
+                    drumGain.connect(audioCtx.destination);
+                    drumOsc.start();
+                    drumOsc.stop(audioCtx.currentTime + 0.2);
+                    beatStep = (beatStep + 1) % 32;
+                }, 280);
+            } catch (e) {}
+        }
+
+        function stopBGM() {
+            if (bgmInterval) { clearInterval(bgmInterval); bgmInterval = null; }
+        }
+
+        function updateHeartDisplay() {
+            let heartsStr = '';
+            for (let i = 0; i < 4; i++) { // 最大4個でループ
+                heartsStr += (i < playerHearts) ? '❤️' : '🖤';
+            }
+            document.getElementById('heart-display').innerText = heartsStr;
+        }
+
+        function updateWeaponUI() {
+            const bowStatus = document.getElementById('bow-status');
+            bowStatus.innerText = `残り: ${bowAmmo}発 / 購入:10コイン`;
+
+            if (playerSprite && stageMode !== 1.5 && stageMode !== 2.5) {
+                playerSprite.material.map = createCharacterTexture();
+                playerSprite.material.needsUpdate = true;
+            }
+        }
+
+        function createCharacterTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (stageMode === 2 || stageMode === 3 || stageMode === 1.5 || stageMode === 2.5) {
+                ctx.fillStyle = '#dc2626';
+                ctx.beginPath();
+                ctx.roundRect(10, 85, 108, 24, 12);
+                ctx.fill();
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(25, 93, 15, 8);
+                ctx.fillRect(55, 93, 18, 8);
+                ctx.fillRect(88, 93, 15, 8);
+
+                ctx.fillStyle = '#2563eb';
+                ctx.fillRect(44, 45, 40, 42);
+                ctx.fillStyle = '#78350f';
+                ctx.fillRect(44, 12, 40, 36);
+
+                if (bowAmmo > 0) {
+                    ctx.strokeStyle = '#b45309'; ctx.lineWidth = 4;
+                    ctx.beginPath(); ctx.arc(32, 62, 16, -Math.PI * 0.4, Math.PI * 0.4); ctx.stroke();
+                }
+            } else {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath();
+                ctx.ellipse(64, 115, 25, 10, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#1e3a8a';
+                ctx.fillRect(48, 85, 12, 30);
+                ctx.fillRect(68, 85, 12, 30);
+
+                ctx.fillStyle = '#2563eb';
+                ctx.fillRect(40, 45, 48, 42);
+
+                ctx.fillStyle = '#1d4ed8';
+                ctx.fillRect(58, 45, 12, 42);
+
+                ctx.fillStyle = '#78350f';
+                ctx.fillRect(44, 8, 40, 38);
+
+                if (bowAmmo > 0) {
+                    ctx.strokeStyle = '#b45309';
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(28, 66, 20, -Math.PI * 0.4, Math.PI * 0.4);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(20, 48);
+                    ctx.lineTo(20, 84);
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.beginPath();
+                    ctx.moveTo(35, 66);
+                    ctx.lineTo(22, 63);
+                    ctx.lineTo(22, 69);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createTexture(type) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (type === 'zombie') {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(64, 115, 25, 10, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#3f6212'; ctx.fillRect(48, 85, 11, 30); ctx.fillRect(69, 85, 11, 30);
+                ctx.fillStyle = '#365314'; ctx.beginPath(); ctx.roundRect(38, 45, 52, 45, 8); ctx.fill();
+                ctx.fillStyle = '#991b1b'; ctx.fillRect(55, 60, 18, 8);
+                ctx.fillStyle = '#a3e635'; ctx.beginPath(); ctx.arc(64, 25, 18, 0, Math.PI * 2); ctx.fill();
+            } else if (type === 'falling') {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(64, 115, 25, 10, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#a3e635'; ctx.beginPath(); ctx.arc(64, 85, 18, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#365314'; ctx.fillRect(38, 30, 52, 45);
+                ctx.fillStyle = '#991b1b'; ctx.fillRect(55, 45, 18, 8);
+            } else if (type === 'winged') {
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.9)';
+                ctx.beginPath();
+                ctx.ellipse(25, 50, 24, 12, -0.3, 0, Math.PI * 2);
+                ctx.ellipse(103, 50, 24, 12, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#365314'; ctx.beginPath(); ctx.roundRect(38, 45, 52, 45, 8); ctx.fill();
+                ctx.fillStyle = '#991b1b'; ctx.fillRect(55, 60, 18, 8);
+                ctx.fillStyle = '#a3e635'; ctx.beginPath(); ctx.arc(64, 25, 18, 0, Math.PI * 2); ctx.fill();
+            } else if (type === 'coin') {
+                let grad = ctx.createRadialGradient(54, 54, 5, 64, 64, 34);
+                grad.addColorStop(0, '#fef08a');
+                grad.addColorStop(0.5, '#eab308');
+                grad.addColorStop(1, '#ca8a04');
+                
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.beginPath(); ctx.arc(64, 68, 32, 0, Math.PI * 2); ctx.fill();
+
+                ctx.fillStyle = grad; 
+                ctx.beginPath(); ctx.arc(64, 64, 32, 0, Math.PI * 2); ctx.fill();
+                
+                ctx.strokeStyle = '#fef08a';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                ctx.strokeStyle = '#a16207';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(64, 64, 24, 0, Math.PI * 2); ctx.stroke();
+
+                ctx.fillStyle = '#ca8a04'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('￥', 64, 65);
+            } else if (type === 'arrow') {
+                ctx.fillStyle = '#f97316'; ctx.fillRect(20, 56, 70, 16);
+                ctx.fillStyle = '#e2e8f0'; ctx.beginPath(); ctx.moveTo(90, 44); ctx.lineTo(120, 64); ctx.lineTo(90, 84); ctx.closePath(); ctx.fill();
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const actionBtn = document.getElementById('action-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+            const resumeBtn = document.getElementById('resume-btn');
+            const btn1 = document.getElementById('control-btn-1');
+            const btn2 = document.getElementById('control-btn-2');
+            const healBtn = document.getElementById('heal-btn');
+            const bowBtn = document.getElementById('bow-btn');
+
+            if (actionBtn) {
+                actionBtn.addEventListener('click', (e) => { e.preventDefault(); startGame(); });
+                actionBtn.addEventListener('touchend', (e) => { e.preventDefault(); startGame(); });
+            }
+
+            const togglePause = (e) => {
+                e.preventDefault();
+                if (gameState === 'PLAYING') {
+                    gameState = 'PAUSED';
+                    document.getElementById('pause-overlay').classList.remove('hidden');
+                    stopBGM();
+                } else if (gameState === 'PAUSED') {
+                    gameState = 'PLAYING';
+                    document.getElementById('pause-overlay').classList.add('hidden');
+                    startBonodoriBGM();
+                    animate();
+                }
+            };
+
+            if (pauseBtn) {
+                pauseBtn.addEventListener('click', togglePause);
+                pauseBtn.addEventListener('touchend', togglePause);
+            }
+            if (resumeBtn) {
+                resumeBtn.addEventListener('click', togglePause);
+                resumeBtn.addEventListener('touchend', togglePause);
+            }
+
+            const handleControl1 = (e) => {
+                e.preventDefault();
+                if (gameState !== 'PLAYING') return;
+                if (stageMode === 1 || stageMode === 3) movePlayerLane(-1);
+                else if (stageMode === 2) movePlayerVertical(1);
+            };
+            const handleControl2 = (e) => {
+                e.preventDefault();
+                if (gameState !== 'PLAYING') return;
+                if (stageMode === 1 || stageMode === 3) movePlayerLane(1);
+                else if (stageMode === 2) movePlayerVertical(-1);
+            };
+
+            if (btn1) {
+                btn1.addEventListener('click', handleControl1);
+                btn1.addEventListener('touchend', handleControl1);
+            }
+            if (btn2) {
+                btn2.addEventListener('click', handleControl2);
+                btn2.addEventListener('touchend', handleControl2);
+            }
+
+            const handleHealAction = (e) => {
+                e.preventDefault();
+                if (gameState !== 'PLAYING') return;
+                if (coinCount >= 10 && playerHearts < 4) { // 最大4個制限
+                    coinCount -= 10;
+                    playerHearts++;
+                    document.getElementById('coin-display').innerText = coinCount;
+                    updateHeartDisplay();
+                    playHealSE();
+                }
+            };
+
+            if (healBtn) {
+                healBtn.addEventListener('click', handleHealAction);
+                healBtn.addEventListener('touchend', handleHealAction);
+            }
+
+            if (bowBtn) {
+                bowBtn.addEventListener('click', (e) => { e.preventDefault(); handleBowAction(); });
+                bowBtn.addEventListener('touchend', (e) => { e.preventDefault(); handleBowAction(); });
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+                    togglePause(e);
+                    return;
+                }
+                if (gameState !== 'PLAYING') return;
+
+                if (['ArrowLeft', 'a', 'A'].includes(e.key)) {
+                    e.preventDefault();
+                    if (stageMode === 1 || stageMode === 3) movePlayerLane(-1);
+                }
+                if (['ArrowRight', 'd', 'D'].includes(e.key)) {
+                    e.preventDefault();
+                    if (stageMode === 1 || stageMode === 3) movePlayerLane(1);
+                }
+                if (['ArrowUp', 'w', 'W'].includes(e.key)) {
+                    e.preventDefault();
+                    if (stageMode === 2) movePlayerVertical(1);
+                }
+                if (['ArrowDown', 's', 'S'].includes(e.key)) {
+                    e.preventDefault();
+                    if (stageMode === 2) movePlayerVertical(-1);
+                }
+                if (e.key === 'h' || e.key === 'H') { handleHealAction(e); }
+                if (e.key === 'r' || e.key === 'R') { handleBowAction(e); }
+            });
+        });
+
+        function movePlayerLane(direction) {
+            if (gameState !== 'PLAYING') return;
+            if (stageMode === 1 || stageMode === 3) {
+                playerLane += direction;
+                if (playerLane < 0) playerLane = 0;
+                if (playerLane > 2) playerLane = 2;
+                playerTargetX = lanes[playerLane];
+            }
+        }
+
+        function movePlayerVertical(direction) {
+            if (gameState !== 'PLAYING') return;
+            if (stageMode === 2) {
+                currentHeightLaneIdx += direction;
+                if (currentHeightLaneIdx < 0) currentHeightLaneIdx = 0;
+                if (currentHeightLaneIdx > 2) currentHeightLaneIdx = 2;
+                playerY2D = heightLanes2D[currentHeightLaneIdx];
+            }
+        }
+
+        function handleBowAction() {
+            if (gameState !== 'PLAYING') return;
+            if (bowAmmo <= 0) {
+                if (coinCount >= 10) {
+                    coinCount -= 10;
+                    bowAmmo += 5;
+                    document.getElementById('coin-display').innerText = coinCount;
+                    playCoinSE();
+                    updateWeaponUI();
+                }
+            } else {
+                bowAmmo--;
+                updateWeaponUI();
+                playAttackSE();
+
+                const aMat = new THREE.SpriteMaterial({ map: arrowTexture });
+                const arrowSprite = new THREE.Sprite(aMat);
+                arrowSprite.scale.set(1.4, 0.7, 1);
+                arrowSprite.position.set(playerSprite.position.x, playerSprite.position.y, playerSprite.position.z);
+                scene.add(arrowSprite);
+
+                activeArrows.push({
+                    sprite: arrowSprite,
+                    x: playerSprite.position.x,
+                    y: playerSprite.position.y,
+                    z: playerSprite.position.z,
+                    lane: playerLane,
+                    mode: stageMode
+                });
+            }
+        }
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05080f);
+            scene.fog = new THREE.FogExp2(0x05080f, 0.04);
+
+            camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+            camera.position.set(0, 2.5, 4);
+            camera.lookAt(0, 1, -6);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+            scene.add(ambientLight);
+
+            zombieTexture = createTexture('zombie');
+            frogZombieTexture = createTexture('frog');
+            wingedZombieTexture = createTexture('winged');
+            fallingZombieTexture = createTexture('falling');
+            coinTexture = createTexture('coin');
+            arrowTexture = createTexture('arrow');
+        }
+
+        function startGame() {
+            startBonodoriBGM();
+
+            playerHearts = 4; // スタート時は4個
+            distanceRun = 0;
+            gameTime = 0;
+            stageTimer = 0;
+            coinCount = 0;
+            bowAmmo = 0;
+            activeArrows = [];
+            fallingZombies = [];
+            stageMode = 1;
+            playerLane = 1;
+            playerTargetX = lanes[1];
+            currentHeightLaneIdx = 1;
+            playerY2D = heightLanes2D[1];
+
+            document.getElementById('coin-display').innerText = coinCount;
+            document.getElementById('carpet-banner').classList.add('opacity-0');
+            document.getElementById('pause-overlay').classList.add('hidden');
+            updateHeartDisplay();
+
+            document.getElementById('control-btn-1').innerText = "⬅️ 左";
+            document.getElementById('control-btn-2').innerText = "右 ➡️";
+
+            if (!scene) init3D();
+
+            setupStage1Scene();
+
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (gameState === 'PLAYING') {
+                    gameTime++;
+                    stageTimer++;
+
+                    if (stageTimer === 50) {
+                        stageTimer = 0;
+                        if (stageMode === 1) {
+                            startTransitionToStage2();
+                        } else if (stageMode === 2) {
+                            startTransitionToStage3();
+                        } else if (stageMode === 3) {
+                            startTransitionToStage1();
+                        }
+                    }
+                }
+            }, 1000);
+
+            gameState = 'PLAYING';
+            const overlay = document.getElementById('overlay');
+            if (overlay) overlay.classList.add('hidden');
+            animate();
+        }
+
+        function setupStage1Scene() {
+            stageMode = 1;
+            document.getElementById('control-btn-1').innerText = "⬅️ 左";
+            document.getElementById('control-btn-2').innerText = "右 ➡️";
+
+            while(scene.children.length > 0){ scene.remove(scene.children[0]); }
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+            scene.add(ambientLight);
+
+            const roadGeo = new THREE.PlaneGeometry(8, 400);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
+            const road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            road.position.set(0, 0, -150);
+            scene.add(road);
+
+            const bMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+            for (let z = 5; z > -200; z -= 10) {
+                [-5.5, 5.5].forEach(bx => {
+                    const bGeo = new THREE.BoxGeometry(4, 8, 9);
+                    const bMesh = new THREE.Mesh(bGeo, bMat);
+                    bMesh.position.set(bx, 4, z);
+                    scene.add(bMesh);
+                });
+            }
+
+            const pMat = new THREE.SpriteMaterial({ map: createCharacterTexture() });
+            playerSprite = new THREE.Sprite(pMat);
+            playerSprite.scale.set(1.8, 1.8, 1);
+            playerSprite.position.set(lanes[1], 0.9, 0);
+            scene.add(playerSprite);
+
+            updateWeaponUI();
+
+            obstacleGroups = [];
+            for (let i = 0; i < 6; i++) {
+                spawnWaveStage1(-30 - (i * 22));
+            }
+        }
+
+        function startTransitionToStage2() {
+            stageMode = 1.5;
+            const banner = document.getElementById('carpet-banner');
+            document.getElementById('banner-text').innerText = "✨ 魔法のじゅうたんステージへ移行中！ ✨";
+            banner.classList.remove('opacity-0');
+
+            obstacleGroups.forEach(group => {
+                group.zombies.forEach(z => scene.remove(z.sprite));
+                group.coins.forEach(c => scene.remove(c.sprite));
+            });
+            obstacleGroups = [];
+            transitionProgress = 0;
+            setTimeout(() => completeTransitionToStage2(), 1000);
+        }
+
+        function completeTransitionToStage2() {
+            stageMode = 2;
+            const banner = document.getElementById('carpet-banner');
+            banner.classList.add('opacity-0');
+
+            document.getElementById('control-btn-1').innerText = "⬆️ 上";
+            document.getElementById('control-btn-2').innerText = "⬇️ 下";
+
+            camera.position.set(0, 2.0, 10.0);
+            camera.lookAt(0, 1.0, 0);
+
+            while(scene.children.length > 0){ scene.remove(scene.children[0]); }
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+            scene.add(ambientLight);
+
+            const pMat = new THREE.SpriteMaterial({ map: createCharacterTexture() });
+            playerSprite = new THREE.Sprite(pMat);
+            playerSprite.scale.set(2.0, 2.0, 1);
+            playerSprite.position.set(-4.5, heightLanes2D[1], 0);
+            scene.add(playerSprite);
+
+            currentHeightLaneIdx = 1;
+            playerY2D = heightLanes2D[1];
+            obstacleGroups = [];
+
+            for (let i = 0; i < 6; i++) {
+                spawnWaveStage2(25 + (i * 18));
+            }
+            updateWeaponUI();
+        }
+
+        function startTransitionToStage3() {
+            stageMode = 2.5;
+            const banner = document.getElementById('carpet-banner');
+            document.getElementById('banner-text').innerText = "⚠️ 空中落下ステージへ移行中！ ⚠️";
+            banner.classList.remove('opacity-0');
+
+            obstacleGroups.forEach(group => {
+                group.zombies.forEach(z => scene.remove(z.sprite));
+                group.coins.forEach(c => scene.remove(c.sprite));
+            });
+            obstacleGroups = [];
+            transitionProgress = 0;
+            setTimeout(() => completeTransitionToStage3(), 1000);
+        }
+
+        function completeTransitionToStage3() {
+            stageMode = 3;
+            const banner = document.getElementById('carpet-banner');
+            banner.classList.add('opacity-0');
+
+            document.getElementById('control-btn-1').innerText = "⬅️ 左";
+            document.getElementById('control-btn-2').innerText = "右 ➡️";
+
+            while(scene.children.length > 0){ scene.remove(scene.children[0]); }
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+            scene.add(ambientLight);
+
+            camera.position.set(0, 1.5, 4.0);
+            camera.lookAt(0, 2.0, -10);
+
+            const pMat = new THREE.SpriteMaterial({ map: createCharacterTexture() });
+            playerSprite = new THREE.Sprite(pMat);
+            playerSprite.scale.set(1.8, 1.8, 1);
+            playerSprite.position.set(lanes[1], 0.6, 2.2);
+            scene.add(playerSprite);
+
+            playerLane = 1;
+            playerTargetX = lanes[1];
+            fallingZombies = [];
+
+            updateWeaponUI();
+        }
+
+        function startTransitionToStage1() {
+            stageMode = 0.5;
+            const banner = document.getElementById('carpet-banner');
+            document.getElementById('banner-text').innerText = "🏮 商店街ステージへ戻ります！ 🏮";
+            banner.classList.remove('opacity-0');
+
+            if (obstacleGroups) {
+                obstacleGroups.forEach(group => {
+                    group.zombies.forEach(z => scene.remove(z.sprite));
+                    group.coins.forEach(c => scene.remove(c.sprite));
+                });
+            }
+            obstacleGroups = [];
+            setTimeout(() => setupStage1Scene(), 1000);
+        }
+
+        function spawnWaveStage1(zPos) {
+            let waveZ = zPos;
+            let zombiesInWave = [];
+            let coinsInWave = [];
+
+            let allowFrog = (gameTime >= 20);
+            let zombieCount = Math.random() < 0.7 ? 1 : 2;
+            let availableLanes = [0, 1, 2];
+            let selectedZombieLanes = [];
+
+            for (let i = 0; i < zombieCount; i++) {
+                let idx = Math.floor(Math.random() * availableLanes.length);
+                selectedZombieLanes.push(availableLanes.splice(idx, 1)[0]);
+            }
+
+            let coinLane = availableLanes.length > 0 ? availableLanes[Math.floor(Math.random() * availableLanes.length)] : -1;
+
+            for (let l = 0; l < 3; l++) {
+                if (selectedZombieLanes.includes(l)) {
+                    let useFrog = allowFrog && (Math.random() < 0.4);
+                    let mat = new THREE.SpriteMaterial({ map: useFrog ? frogZombieTexture : zombieTexture });
+                    let sprite = new THREE.Sprite(mat);
+                    sprite.scale.set(1.8, 1.8, 1);
+                    sprite.position.set(lanes[l], 0.9, waveZ);
+                    scene.add(sprite);
+
+                    zombiesInWave.push({
+                        sprite: sprite, isFrog: useFrog, lane: l, z: waveZ, jumpCycle: Math.random() * Math.PI, hitRegistered: false
+                    });
+                } else if (l === coinLane) {
+                    let cMat = new THREE.SpriteMaterial({ map: coinTexture });
+                    let cSprite = new THREE.Sprite(cMat);
+                    cSprite.scale.set(1.2, 1.2, 1);
+                    cSprite.position.set(lanes[l], 0.9, waveZ + 6);
+                    scene.add(cSprite);
+                    coinsInWave.push({ sprite: cSprite, lane: l, z: waveZ + 6, collected: false });
+                }
+            }
+
+            obstacleGroups.push({ zombies: zombiesInWave, coins: coinsInWave });
+        }
+
+        function spawnWaveStage2(xPos) {
+            let waveX = xPos;
+            let zombiesInWave = [];
+            let coinsInWave = [];
+
+            let availableHeights = [0, 1, 2];
+            let zombieCount = Math.random() < 0.6 ? 1 : 2;
+            let selectedZombieHeights = [];
+
+            for (let i = 0; i < zombieCount; i++) {
+                let idx = Math.floor(Math.random() * availableHeights.length);
+                selectedZombieHeights.push(availableHeights.splice(idx, 1)[0]);
+            }
+
+            let coinHeight = availableHeights.length > 0 ? availableHeights[Math.floor(Math.random() * availableHeights.length)] : -1;
+
+            for (let h = 0; h < 3; h++) {
+                let targetY = heightLanes2D[h];
+
+                if (selectedZombieHeights.includes(h)) {
+                    let mat = new THREE.SpriteMaterial({ map: wingedZombieTexture });
+                    let sprite = new THREE.Sprite(mat);
+                    sprite.scale.set(2.0, 2.0, 1);
+                    sprite.position.set(waveX, targetY, 0);
+                    scene.add(sprite);
+
+                    zombiesInWave.push({
+                        sprite: sprite, x: waveX, y: targetY, hitRegistered: false
+                    });
+                } else if (h === coinHeight) {
+                    let cMat = new THREE.SpriteMaterial({ map: coinTexture });
+                    let cSprite = new THREE.Sprite(cMat);
+                    cSprite.scale.set(1.2, 1.2, 1);
+                    cSprite.position.set(waveX, targetY, 0);
+                    scene.add(cSprite);
+                    coinsInWave.push({ sprite: cSprite, x: waveX, y: targetY, collected: false });
+                }
+            }
+
+            obstacleGroups.push({ zombies: zombiesInWave, coins: coinsInWave });
+        }
+
+        function spawnFallingZombie() {
+            let lane = Math.floor(Math.random() * 3);
+            let x = lanes[lane];
+            let z = -25 - Math.random() * 10;
+
+            let mat = new THREE.SpriteMaterial({ map: fallingZombieTexture });
+            let sprite = new THREE.Sprite(mat);
+            sprite.scale.set(1.8, 1.8, 1);
+            sprite.position.set(x, 10.0, z);
+            scene.add(sprite);
+
+            fallingZombies.push({
+                sprite: sprite,
+                lane: lane,
+                x: x,
+                y: 10.0,
+                z: z,
+                hitRegistered: false
+            });
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            stopBGM();
+            if (timerInterval) clearInterval(timerInterval);
+            document.getElementById('overlay-title').innerText = "ゲームオーバー";
+            document.getElementById('overlay-desc').innerText = `ゾンビに触れて力尽きてしまった...\n生存距離: ${Math.floor(distanceRun)}m (生存時間: ${gameTime}秒)\n\n※スクショして自慢し合おう`;
+            document.getElementById('action-btn').innerText = "もう一度挑戦";
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            distanceRun += 0.2;
+            
+            let speedMultiplier = (stageMode === 2) ? 1.0 : Math.pow(1.2, Math.floor(stageTimer / 10));
+            let currentSpeed = (0.16 + (stageTimer * 0.0003)) * speedMultiplier;
+
+            document.getElementById('score-indicator-line1').innerText = `距離: ${Math.floor(distanceRun)}m | 時間: ${gameTime}秒`;
+            document.getElementById('score-indicator-line2').innerText = `速度: ${speedMultiplier.toFixed(1)}x`;
+
+            if (stageMode === 1) {
+                playerSprite.position.x += (playerTargetX - playerSprite.position.x) * 0.25;
+                stepCycle += 0.35;
+                playerSprite.position.y = 0.9 + Math.abs(Math.sin(stepCycle)) * 0.15;
+
+                camera.position.set(0, 2.5, 4);
+                camera.lookAt(0, 1, -6);
+
+                for (let i = activeArrows.length - 1; i >= 0; i--) {
+                    let arrow = activeArrows[i];
+                    if (arrow.mode === 1) {
+                        arrow.z -= 0.8;
+                        arrow.sprite.position.z = arrow.z;
+                        if (arrow.sprite.position.y < 2.5) arrow.sprite.position.y += 0.04;
+
+                        if (arrow.z < -100) {
+                            scene.remove(arrow.sprite);
+                            activeArrows.splice(i, 1);
+                            continue;
+                        }
+
+                        let hitTarget = null;
+                        let minZ = 999;
+                        for (let group of obstacleGroups) {
+                            for (let z of group.zombies) {
+                                if (z.hitRegistered) continue;
+                                let zLane = Math.round((z.sprite.position.x + 2.0) / 2.0);
+                                if (zLane === arrow.lane && Math.abs(z.z - arrow.z) < 1.5) {
+                                    if (z.z < minZ) { minZ = z.z; hitTarget = z; }
+                                }
+                            }
+                        }
+                        if (hitTarget) {
+                            hitTarget.hitRegistered = true;
+                            hitTarget.z = -200;
+                            playHitSE();
+                            scene.remove(arrow.sprite);
+                            activeArrows.splice(i, 1);
+                        }
+                    }
+                }
+
+                obstacleGroups.forEach((group, groupIdx) => {
+                    let wavePassed = true;
+                    group.coins.forEach(c => {
+                        c.z += currentSpeed;
+                        c.sprite.position.z = c.z;
+                        if (c.z < 6) wavePassed = false;
+
+                        if (!c.collected && Math.abs(c.z - playerSprite.position.z) < 0.9 && playerLane === c.lane) {
+                            c.collected = true;
+                            scene.remove(c.sprite);
+                            playCoinSE();
+                            coinCount++;
+                            document.getElementById('coin-display').innerText = coinCount;
+                        }
+                    });
+
+                    group.zombies.forEach(z => {
+                        z.z += currentSpeed;
+                        let isGrounded = true;
+                        if (z.isFrog) {
+                            z.jumpCycle = (z.jumpCycle || 0) + 0.1;
+                            let jumpHeight = Math.sin(z.jumpCycle);
+                            if (jumpHeight > 0) {
+                                z.sprite.position.y = 0.9 + jumpHeight * 5.0;
+                                isGrounded = false;
+                            } else {
+                                z.sprite.position.y = 0.9;
+                            }
+                        }
+                        z.sprite.position.z = z.z;
+                        if (z.z < 6) wavePassed = false;
+
+                        let hit = false;
+                        let currentLaneIdx = Math.round((z.sprite.position.x + 2.0) / 2.0);
+                        currentLaneIdx = Math.max(0, Math.min(2, currentLaneIdx));
+
+                        if (Math.abs(z.z - playerSprite.position.z) < 0.8 && !z.hitRegistered) {
+                            if (!(z.isFrog && !isGrounded) && playerLane === currentLaneIdx) hit = true;
+                        }
+
+                        if (hit) {
+                            z.hitRegistered = true;
+                            playHitSE();
+                            playerHearts--;
+                            updateHeartDisplay();
+                            if (playerHearts <= 0) gameOver();
+                        }
+                    });
+
+                    if (wavePassed && group.zombies.length > 0 && group.zombies[0].z > 6) {
+                        group.zombies.forEach(z => scene.remove(z.sprite));
+                        group.coins.forEach(c => scene.remove(c.sprite));
+                        obstacleGroups.splice(groupIdx, 1);
+                        spawnWaveStage1(-180 - Math.random() * 20);
+                    }
+                });
+
+            } else if (stageMode === 3) {
+                playerSprite.position.x += (playerTargetX - playerSprite.position.x) * 0.25;
+
+                camera.position.set(0, 1.5, 4.0);
+                camera.lookAt(0, 2.0, -10);
+
+                if (Math.random() < 0.045) {
+                    spawnFallingZombie();
+                }
+
+                for (let i = activeArrows.length - 1; i >= 0; i--) {
+                    let arrow = activeArrows[i];
+                    if (arrow.mode === 3) {
+                        arrow.y += 0.5;
+                        arrow.z -= 0.5;
+                        arrow.sprite.position.set(arrow.x, arrow.y, arrow.z);
+
+                        if (arrow.y > 15) {
+                            scene.remove(arrow.sprite);
+                            activeArrows.splice(i, 1);
+                            continue;
+                        }
+
+                        let hitTarget = null;
+                        for (let fz of fallingZombies) {
+                            if (!fz.hitRegistered && fz.lane === arrow.lane && Math.abs(fz.y - arrow.y) < 2.0 && Math.abs(fz.z - arrow.z) < 2.0) {
+                                hitTarget = fz;
+                            }
+                        }
+
+                        if (hitTarget) {
+                            hitTarget.hitRegistered = true;
+                            hitTarget.sprite.position.y = -50;
+                            playHitSE();
+                            scene.remove(arrow.sprite);
+                            activeArrows.splice(i, 1);
+                        }
+                    }
+                }
+
+                for (let i = fallingZombies.length - 1; i >= 0; i--) {
+                    let fz = fallingZombies[i];
+                    fz.y -= 0.10;
+                    fz.z += 0.18;
+                    fz.sprite.position.set(fz.x, fz.y, fz.z);
+
+                    if (fz.y < -1.0 || fz.z > 5.0) {
+                        scene.remove(fz.sprite);
+                        fallingZombies.splice(i, 1);
+                        continue;
+                    }
+
+                    let hit = false;
+                    if (!fz.hitRegistered && fz.lane === playerLane && fz.z > 1.5 && fz.z < 3.0 && fz.y < 1.5) {
+                        hit = true;
+                    }
+
+                    if (hit) {
+                        fz.hitRegistered = true;
+                        playHitSE();
+                        playerHearts--;
+                        updateHeartDisplay();
+                        scene.remove(fz.sprite);
+                        fallingZombies.splice(i, 1);
+                        if (playerHearts <= 0) gameOver();
+                    }
+                }
+
+            } else if (stageMode === 2) {
+                playerSprite.position.x = -4.5;
+                playerSprite.position.y += (playerY2D - playerSprite.position.y) * 0.25;
+                playerSprite.position.y += Math.sin(Date.now() * 0.005) * 0.02;
+
+                camera.position.set(0, 2.0, 10.0);
+                camera.lookAt(0, 1.0, 0);
+
+                for (let i = activeArrows.length - 1; i >= 0; i--) {
+                    let arrow = activeArrows[i];
+                    if (arrow.mode === 2) {
+                        arrow.x += 0.8;
+                        arrow.sprite.position.x = arrow.x;
+
+                        if (arrow.x > 35) {
+                            scene.remove(arrow.sprite);
+                            activeArrows.splice(i, 1);
+                            continue;
+                        }
+
+                        let hitTarget = null;
+                        for (let group of obstacleGroups) {
+                            for (let z of group.zombies) {
+                                if (!z.hitRegistered && Math.abs(z.x - arrow.x) < 1.5 && Math.abs(z.y - arrow.y) < 1.5) {
+                                    hitTarget = z;
+                                }
+                            }
+                        }
+
+                        if (hitTarget) {
+                            hitTarget.hitRegistered = true;
+                            hitTarget.x = -100;
+                            playHitSE();
+                            scene.remove(arrow.sprite);
+                            activeArrows.splice(i, 1);
+                        }
+                    }
+                }
+
+                obstacleGroups.forEach((group, groupIdx) => {
+                    let groupPassed = true;
+
+                    group.coins.forEach(c => {
+                        c.x -= currentSpeed * 1.2;
+                        c.sprite.position.x = c.x;
+                        if (c.x > -15) groupPassed = false;
+
+                        if (!c.collected && Math.abs(c.x - playerSprite.position.x) < 1.2 && Math.abs(c.y - playerSprite.position.y) < 1.2) {
+                            c.collected = true;
+                            scene.remove(c.sprite);
+                            playCoinSE();
+                            coinCount++;
+                            document.getElementById('coin-display').innerText = coinCount;
+                        }
+                    });
+
+                    group.zombies.forEach(z => {
+                        z.x -= currentSpeed * 1.2;
+                        z.sprite.position.x = z.x;
+                        if (z.x > -15) groupPassed = false;
+
+                        let hit = false;
+                        if (!z.hitRegistered && Math.abs(z.x - playerSprite.position.x) < 0.9 && Math.abs(z.y - playerSprite.position.y) < 0.9) {
+                            hit = true;
+                        }
+
+                        if (hit) {
+                            z.hitRegistered = true;
+                            playHitSE();
+                            playerHearts--;
+                            updateHeartDisplay();
+                            if (playerHearts <= 0) gameOver();
+                        }
+                    });
+
+                    if (groupPassed && group.zombies.length > 0 && group.zombies[0].x < -15) {
+                        group.zombies.forEach(z => scene.remove(z.sprite));
+                        group.coins.forEach(c => scene.remove(c.sprite));
+                        obstacleGroups.splice(groupIdx, 1);
+                        spawnWaveStage2(25 + Math.random() * 8);
+                    }
+                });
+            }
+        }
+
+        function animate() {
+            if (gameState === 'PLAYING') {
+                update();
+                renderer.render(scene, camera);
+                requestAnimationFrame(animate);
+            }
+        }
+    </script>
+</body>
+</html>
+
