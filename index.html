@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ひたすら生き残れ！！</title>
+<style>
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+user-select: none;
+-webkit-user-select: none;
+touch-action: manipulation;
+}
+body {
+background-color: #050814;
+color: #f8fafc;
+font-family: 'Courier New', Courier, monospace, sans-serif;
+overflow: hidden;
+width: 100vw;
+height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: space-between;
+padding: 8px;
+}
+.header-ui {
+width: 100%;
+max-width: 480px;
+background: rgba(15, 23, 42, 0.95);
+border: 1px solid #334155;
+border-radius: 12px;
+padding: 8px 12px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+z-index: 20;
+flex-shrink: 0;
+}
+.score-info {
+display: flex;
+flex-direction: column;
+}
+.score-line1 {
+font-size: 11px;
+font-weight: bold;
+color: #e2e8f0;
+white-space: nowrap;
+}
+.score-line2 {
+font-size: 11px;
+font-weight: bold;
+color: #f59e0b;
+}
+.header-right {
+display: flex;
+gap: 6px;
+align-items: center;
+}
+.heart-box {
+background: #020617;
+border: 1px solid #1e293b;
+border-radius: 6px;
+padding: 2px 6px;
+display: flex;
+flex-direction: column;
+gap: 2px;
+font-size: 10px;
+}
+.bow-box {
+background: #020617;
+border: 1px solid #1e293b;
+border-radius: 6px;
+padding: 2px 8px;
+display: flex;
+flex-direction: column;
+align-items: center;
+min-width: 60px;
+}
+.bow-count-text {
+font-size: 12px;
+font-weight: 900;
+color: #22c55e;
+display: flex;
+align-items: center;
+gap: 2px;
+}
+.bow-rec-text {
+font-size: 9px;
+color: #f59e0b;
+}
+.btn-ui {
+background: #1e293b;
+border: 1px solid #475569;
+color: #f8fafc;
+border-radius: 8px;
+padding: 6px 10px;
+font-size: 11px;
+font-weight: bold;
+cursor: pointer;
+box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+transition: background 0.2s;
+}
+.btn-ui:active {
+background: #334155;
+transform: scale(0.96);
+}
+#canvas-container {
+position: relative;
+width: 100%;
+max-width: 480px;
+flex: 1;
+margin: 6px 0;
+background: #020617;
+border: 2px solid #334155;
+border-radius: 16px;
+overflow: hidden;
+box-shadow: 0 15px 30px rgba(0,0,0,0.7);
+z-index: 10;
+}
+canvas {
+width: 100%;
+height: 100%;
+display: block;
+}
+.footer-guide {
+width: 100%;
+max-width: 480px;
+background: rgba(15, 23, 42, 0.9);
+border: 1px solid #334155;
+border-radius: 10px;
+padding: 8px;
+font-size: 11px;
+text-align: center;
+color: #cbd5e1;
+z-index: 20;
+}
+.overlay-screen {
+position: fixed;
+inset: 0;
+background: rgba(2, 6, 23, 0.95);
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+padding: 20px;
+text-align: center;
+z-index: 100;
+backdrop-filter: blur(4px);
+}
+.overlay-screen.hidden {
+display: none !important;
+}
+.overlay-title {
+font-size: 24px;
+font-weight: 900;
+color: #fbbf24;
+margin-bottom: 8px;
+}
+.overlay-desc {
+font-size: 12px;
+color: #cbd5e1;
+margin-bottom: 20px;
+line-height: 1.6;
+max-width: 300px;
+}
+.btn-main {
+background: #f59e0b;
+color: #020617;
+font-weight: 900;
+padding: 12px 24px;
+border-radius: 12px;
+font-size: 14px;
+border: none;
+cursor: pointer;
+box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+transition: all 0.2s;
+width: 100%;
+max-width: 260px;
+}
+.btn-main:active {
+transform: scale(0.95);
+}
+.stage-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 8px;
+width: 100%;
+max-width: 280px;
+margin-top: 12px;
+}
+.btn-sub {
+background: #1e293b;
+color: #e2e8f0;
+border: 1px solid #475569;
+padding: 8px;
+border-radius: 8px;
+font-size: 11px;
+font-weight: bold;
+cursor: pointer;
+}
+.btn-sub:active {
+background: #334155;
+}
+#carpet-banner {
+position: fixed;
+top: 18%;
+left: 50%;
+transform: translateX(-50%);
+background: linear-gradient(90deg, #f59e0b, #ec4899);
+color: #020617;
+font-weight: 900;
+padding: 8px 16px;
+border-radius: 20px;
+font-size: 13px;
+box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+pointer-events: none;
+opacity: 0;
+transition: opacity 0.4s ease;
+z-index: 90;
+white-space: nowrap;
+}
+#carpet-banner.show {
+opacity: 1;
+}
+</style>
+</head>
+<body>
+<div class="header-ui">
+<div class="score-info">
+<span id="score-line1" class="score-line1">距離: 0m | 時間: 0秒</span>
+<span id="score-line2" class="score-line2">速度: 1.0x</span>
+</div>
+<div class="header-right">
+<div class="heart-box">
+<span id="heart-row1">❤️❤️❤️</span>
+<span id="heart-row2">❤️❤️🖤</span>
+</div>
+<div class="bow-box">
+<div class="bow-count-text">🏹 <span id="bow-count">5</span></div>
+<span id="bow-recovery" class="bow-rec-text">MAX</span>
+</div>
+<button id="config-btn" class="btn-ui">⚙️</button>
+<button id="pause-btn" class="btn-ui">⏸️ 中断</button>
+</div>
+</div>
+<div id="canvas-container">
+<canvas id="gameCanvas"></canvas>
+</div>
+<div class="footer-guide">
+🎈 <span style="color:#f59e0b; font-weight:bold;">第5ステージ(3D風船)</span>: スライド移動 / タップで弓矢発射！
+
+⚠️ 3D空間の奥から浮遊してくる風船ゾンビを撃ち落とせ！
+</div>
+<div id="carpet-banner">✨ ステージ切り替え！ ✨</div>
+<div id="overlay" class="overlay-screen">
+<h1 class="overlay-title">ひたすら生き残れ！！</h1>
+<p class="overlay-desc">
+画面をスライドして移動！
+
+タップして奥から迫るゾンビ＆風船へ弓矢を発射しよう！
+</p>
+<button id="btn-start-game" class="btn-main">▶️ ゲームスタート</button>
+<div class="stage-grid">
+<button class="btn-sub" onclick="window.startGame(1)">第1ステージ</button>
+<button class="btn-sub" onclick="window.startGame(2)">第2ステージ</button>
+<button class="btn-sub" onclick="window.startGame(3)">第3ステージ</button>
+<button class="btn-sub" onclick="window.startGame(4)">第4ステージ</button>
+<button class="btn-sub" onclick="window.startGame(5)" style="grid-column: span 2; background: #3b82f6;">第5ステージ (3D風船浮遊)</button>
+</div>
+</div>
+<div id="pause-overlay" class="overlay-screen hidden">
+<h2 class="overlay-title">ゲーム一時中断</h2>
+<p class="overlay-desc">休憩中... 再開ボタンを押すと復帰します。</p>
+<button id="resume-btn" class="btn-main">ゲームを再開する</button>
+</div>
+<div id="config-overlay" class="overlay-screen hidden">
+<h2 class="overlay-title">⚙️ ゲーム設定</h2>
+<div style="width: 100%; max-width: 260px; text-align: left; font-size: 12px; margin-bottom: 20px;">
+<div style="margin-bottom: 12px;">
+<label style="display:flex; justify-content:space-between; margin-bottom: 4px;">音量: <span id="val-volume" style="color:#f59e0b">50%</span></label>
+<input id="setting-volume" type="range" min="0" max="100" value="50" style="width: 100%;">
+</div>
+<div>
+<label style="display:flex; justify-content:space-between; margin-bottom: 4px;">操作感度: <span id="val-sensitivity" style="color:#f59e0b">段階 5</span></label>
+<input id="setting-sensitivity" type="range" min="1" max="10" value="5" style="width: 100%;">
+</div>
+</div>
+<button id="close-config-btn" class="btn-main">設定を保存して閉じる</button>
+</div>
+<script>
+let canvas, ctx;
+let gameState = 'START';
+let stageMode = 1;
+let distanceRun = 0;
+let gameTime = 0;
+let stageTimer = 0;
+let timerInterval = null;
+let arrowRecoveryTimer = 0;
+let gameConfig = {
+volume: 0.5,
+sensitivityLevel: 5
+};
+let playerLane = 1;
+let playerTargetLane = 1;
+let playerHearts = 5;
+let bowAmmo = 5;
+let activeArrows = [];
+let zombies = [];
+let particles = [];
+let audioCtx = null;
+let pointerStartX = 0;
+let pointerStartY = 0;
+let isPointerDown = false;
+let hasMoved = false;
+function initAudio() {
+try {
+if (!audioCtx) {
+const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+if (AudioCtxClass) audioCtx = new AudioCtxClass();
+}
+if (audioCtx && audioCtx.state === 'suspended') {
+audioCtx.resume();
+}
+} catch (e) {
+console.warn('Audio disabled:', e);
+}
+}
+function playSound(type) {
+if (!audioCtx || gameConfig.volume <= 0) return;
+try {
+const osc = audioCtx.createOscillator();
+const gain = audioCtx.createGain();
+osc.connect(gain);
+gain.connect(audioCtx.destination);
+const now = audioCtx.currentTime;
+if (type === 'shoot') {
+osc.type = 'sine';
+osc.frequency.setValueAtTime(800, now);
+osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+gain.gain.setValueAtTime(0.3 * gameConfig.volume, now);
+gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+osc.start(now);
+osc.stop(now + 0.1);
+} else if (type === 'hit') {
+osc.type = 'triangle';
+osc.frequency.setValueAtTime(150, now);
+osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+gain.gain.setValueAtTime(0.5 * gameConfig.volume, now);
+gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+osc.start(now);
+osc.stop(now + 0.15);
+}
+} catch (e) {}
+}
+function updateUI() {
+let r1 = '', r2 = '';
+for (let i = 0; i < 3; i++) r1 += (i < playerHearts) ? '❤️' : '🖤';
+for (let i = 3; i < 5; i++) r2 += (i < playerHearts) ? '❤️' : '🖤';
+document.getElementById('heart-row1').innerText = r1;
+document.getElementById('heart-row2').innerText = r2;
+document.getElementById('bow-count').innerText = bowAmmo;
+const rec = document.getElementById('bow-recovery');
+if (bowAmmo < 5) {
+rec.innerText = ⁠回復:${10 - arrowRecoveryTimer}s⁠;
+} else {
+rec.innerText = 'MAX';
+}
+}
+function addParticles(x, y, color) {
+for (let i = 0; i < 8; i++) {
+particles.push({
+x: x, y: y,
+vx: (Math.random() - 0.5) * 6,
+vy: (Math.random() - 0.5) * 6,
+life: 1.0,
+color: color || '#f43f5e'
+});
+}
+}
+function showBanner(text) {
+const banner = document.getElementById('carpet-banner');
+banner.innerText = text;
+banner.classList.add('show');
+setTimeout(() => banner.classList.remove('show'), 2000);
+}
+function spawnZombie() {
+const lane = Math.floor(Math.random() * 3);
+if (stageMode === 1) {
+zombies.push({ lane: lane, z: 0.1, hp: 1, type: 'runner' });
+} else if (stageMode === 2) {
+zombies.push({ x: canvas.width + 30, lane: lane, hp: 1, type: 'side' });
+} else if (stageMode === 3) {
+zombies.push({ lane: lane, y: -40, speed: 2 + Math.random() * 2, hp: 1, type: 'fall' });
+} else if (stageMode === 4) {
+zombies.push({ lane: lane, z: 0.1, hp: 1, type: 'minecart' });
+} else if (stageMode === 5) {
+zombies.push({
+lane: lane,
+z: 0.1,
+hp: 1,
+type: 'balloon3d',
+floatOffset: Math.random() * Math.PI * 2
+});
+}
+}
+function resizeCanvas() {
+const container = document.getElementById('canvas-container');
+if (!container || !canvas) return;
+canvas.width = container.clientWidth;
+canvas.height = container.clientHeight;
+}
+function handlePointerStart(x, y) {
+if (gameState !== 'PLAYING') return;
+isPointerDown = true;
+pointerStartX = x;
+pointerStartY = y;
+hasMoved = false;
+}
+function handlePointerMove(x, y) {
+if (!isPointerDown || gameState !== 'PLAYING') return;
+const dx = x - pointerStartX;
+const dy = y - pointerStartY;
+const threshold = Math.max(8, 30 - (gameConfig.sensitivityLevel * 2.2));
+if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+hasMoved = true;
+if (Math.abs(dx) > Math.abs(dy) || stageMode !== 2) {
+if (dx > threshold && playerTargetLane < 2) {
+playerTargetLane++;
+pointerStartX = x;
+pointerStartY = y;
+} else if (dx < -threshold && playerTargetLane > 0) {
+playerTargetLane--;
+pointerStartX = x;
+pointerStartY = y;
+}
+} else {
+if (stageMode === 2) {
+if (dy > threshold && playerTargetLane < 2) {
+playerTargetLane++;
+pointerStartX = x;
+pointerStartY = y;
+} else if (dy < -threshold && playerTargetLane > 0) {
+playerTargetLane--;
+pointerStartX = x;
+pointerStartY = y;
+}
+}
+}
+}
+}
+function handlePointerEnd() {
+if (!isPointerDown) return;
+if (!hasMoved && gameState === 'PLAYING') {
+shootArrow();
+}
+isPointerDown = false;
+hasMoved = false;
+}
+function shootArrow() {
+if (bowAmmo <= 0) return;
+bowAmmo--;
+updateUI();
+playSound('shoot');
+const w = canvas.width;
+const h = canvas.height;
+if (stageMode === 1 || stageMode === 3 || stageMode === 4 || stageMode === 5) {
+const startX = (Math.round(playerLane) + 0.5) * (w / 3);
+const startY = h - 60;
+activeArrows.push({ x: startX, y: startY, lane: Math.round(playerLane), speed: 14, type: 'up' });
+} else if (stageMode === 2) {
+const startX = 80;
+const startY = (Math.round(playerLane) + 0.5) * (h / 3);
+activeArrows.push({ x: startX, y: startY, lane: Math.round(playerLane), speed: 16, type: 'right' });
+}
+}
+function updateGame() {
+if (gameState !== 'PLAYING') return;
+distanceRun += 0.2;
+const speedMultiplier = Math.min(2.5, 1.0 + (stageTimer * 0.02));
+document.getElementById('score-line1').innerText = ⁠距離: ${Math.floor(distanceRun)}m | 時間: ${gameTime}秒⁠;
+document.getElementById('score-line2').innerText = ⁠速度: ${speedMultiplier.toFixed(1)}x⁠;
+playerLane += (playerTargetLane - playerLane) * 0.4;
+if (Math.random() < 0.035 * speedMultiplier) {
+spawnZombie();
+}
+for (let i = activeArrows.length - 1; i >= 0; i--) {
+const a = activeArrows[i];
+if (a.type === 'up') {
+a.y -= a.speed;
+if (a.y < 0) { activeArrows.splice(i, 1); continue; }
+} else if (a.type === 'right') {
+a.x += a.speed;
+if (a.x > canvas.width) { activeArrows.splice(i, 1); continue; }
+}
+for (let j = zombies.length - 1; j >= 0; j--) {
+const z = zombies[j];
+let hit = false;
+if (stageMode === 1 || stageMode === 4) {
+const zX = (z.lane + 0.5) * (canvas.width / 3);
+const zY = canvas.height * (0.2 + z.z * 0.7);
+if (Math.abs(a.x - zX) < 45 && Math.abs(a.y - zY) < 45) hit = true;
+} else if (stageMode === 2) {
+const zY = (z.lane + 0.5) * (canvas.height / 3);
+if (Math.abs(a.x - z.x) < 45 && Math.abs(a.y - zY) < 45) hit = true;
+} else if (stageMode === 3) {
+const zX = (z.lane + 0.5) * (canvas.width / 3);
+if (Math.abs(a.x - zX) < 45 && Math.abs(a.y - z.y) < 45) hit = true;
+} else if (stageMode === 5) {
+z.floatOffset += 0.1;
+const floatX = Math.sin(z.floatOffset) * 25;
+const zX = (z.lane + 0.5) * (canvas.width / 3) + floatX;
+const zY = canvas.height * (0.2 + z.z * 0.65);
+if (Math.abs(a.x - zX) < 45 && Math.abs(a.y - zY) < 45) hit = true;
+}
+if (hit) {
+playSound('hit');
+addParticles(a.x, a.y, stageMode === 5 ? '#a855f7' : '#f43f5e');
+activeArrows.splice(i, 1);
+zombies.splice(j, 1);
+break;
+}
+}
+}
+for (let i = zombies.length - 1; i >= 0; i--) {
+const z = zombies[i];
+if (stageMode === 1 || stageMode === 4 || stageMode === 5) {
+z.z += 0.015 * speedMultiplier;
+if (z.z >= 0.9) {
+if (Math.round(playerLane) === z.lane) {
+playerHearts--;
+playSound('hit');
+updateUI();
+if (playerHearts <= 0) gameOver();
+}
+zombies.splice(i, 1);
+}
+} else if (stageMode === 2) {
+z.x -= 3.5 * speedMultiplier;
+if (z.x < 70) {
+if (z.lane === Math.round(playerLane)) {
+playerHearts--;
+playSound('hit');
+updateUI();
+if (playerHearts <= 0) gameOver();
+}
+zombies.splice(i, 1);
+}
+} else if (stageMode === 3) {
+z.y += (z.speed * speedMultiplier);
+if (z.y > canvas.height - 70) {
+if (Math.round(playerLane) === z.lane) {
+playerHearts--;
+playSound('hit');
+updateUI();
+if (playerHearts <= 0) gameOver();
+}
+zombies.splice(i, 1);
+}
+}
+}
+for (let i = particles.length - 1; i >= 0; i--) {
+const p = particles[i];
+p.x += p.vx;
+p.y += p.vy;
+p.life -= 0.05;
+if (p.life <= 0) particles.splice(i, 1);
+}
+}
+function drawGame() {
+if (!ctx) return;
+const w = canvas.width;
+const h = canvas.height;
+ctx.clearRect(0, 0, w, h);
+// Background lanes
+if (stageMode === 1 || stageMode === 3 || stageMode === 4 || stageMode === 5) {
+ctx.strokeStyle = stageMode === 5 ? '#3b82f633' : '#334155';
+ctx.lineWidth = 2;
+for (let i = 1; i < 3; i++) {
+ctx.beginPath();
+if (stageMode === 5) {
+ctx.moveTo(i * (w / 3), 0);
+ctx.lineTo((i - 1) * (w / 3) + w / 6, h);
+} else {
+ctx.moveTo(i * (w / 3), 0);
+ctx.lineTo(i * (w / 3), h);
+}
+ctx.stroke();
+}
+} else {
+ctx.strokeStyle = '#334155';
+ctx.lineWidth = 2;
+for (let i = 1; i < 3; i++) {
+ctx.beginPath();
+ctx.moveTo(0, i * (h / 3));
+ctx.lineTo(w, i * (h / 3));
+ctx.stroke();
+}
+}
+// Draw Player (Stage 5 has floating player with a balloon!)
+if (stageMode === 5) {
+const pX = (playerLane + 0.5) * (w / 3);
+const pY = h - 90;
+const scale = 0.9;
+// Balloon String
+ctx.strokeStyle = '#e2e8f0';
+ctx.lineWidth = 1.5;
+ctx.beginPath();
+ctx.moveTo(pX, pY - 22 * scale);
+ctx.lineTo(pX, pY + 5 * scale);
+ctx.stroke();
+// Balloon Body (Pink / Magenta)
+ctx.fillStyle = '#ec4899';
+ctx.beginPath();
+ctx.ellipse(pX, pY - 45 * scale, 18 * scale, 22 * scale, 0, 0, Math.PI * 2);
+ctx.fill();
+// Balloon Highlight
+ctx.fillStyle = '#f472b6';
+ctx.beginPath();
+ctx.ellipse(pX - 5 * scale, pY - 52 * scale, 5 * scale, 8 * scale, Math.PI / 6, 0, Math.PI * 2);
+ctx.fill();
+// Player Body (hanging below string)
+ctx.fillStyle = '#3b82f6';
+ctx.beginPath();
+ctx.arc(pX, pY + 16 * scale, 10 * scale, 0, Math.PI * 2);
+ctx.fill();
+// Player Head
+ctx.fillStyle = '#f43f5e';
+ctx.beginPath();
+ctx.arc(pX, pY + 5 * scale, 8 * scale, 0, Math.PI * 2);
+ctx.fill();
+// Hanging Legs
+ctx.strokeStyle = '#3b82f6';
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.moveTo(pX - 4, pY + 26 * scale);
+ctx.lineTo(pX - 8, pY + 36 * scale);
+ctx.moveTo(pX + 4, pY + 26 * scale);
+ctx.lineTo(pX + 8, pY + 36 * scale);
+ctx.stroke();
+} else if (stageMode === 1 || stageMode === 3 || stageMode === 4) {
+const pX = (playerLane + 0.5) * (w / 3);
+ctx.fillStyle = '#3b82f6';
+ctx.beginPath();
+ctx.arc(pX, h - 50, 18, 0, Math.PI * 2);
+ctx.fill();
+ctx.fillStyle = '#f43f5e';
+ctx.beginPath();
+ctx.arc(pX, h - 80, 14, 0, Math.PI * 2);
+ctx.fill();
+} else {
+const pY = (playerLane + 0.5) * (h / 3);
+ctx.fillStyle = '#3b82f6';
+ctx.beginPath();
+ctx.arc(60, pY, 18, 0, Math.PI * 2);
+ctx.fill();
+ctx.fillStyle = '#f43f5e';
+ctx.beginPath();
+ctx.arc(60, pY - 30, 14, 0, Math.PI * 2);
+ctx.fill();
+}
+// Draw Zombies & 3D Balloon Zombies
+zombies.forEach(z => {
+if (stageMode === 1 || stageMode === 4) {
+const zX = (z.lane + 0.5) * (w / 3);
+const zY = h * (0.2 + z.z * 0.7);
+const size = 12 + z.z * 25;
+ctx.fillStyle = '#22c55e';
+ctx.beginPath();
+ctx.arc(zX, zY, size, 0, Math.PI * 2);
+ctx.fill();
+} else if (stageMode === 2) {
+const zY = (z.lane + 0.5) * (h / 3);
+ctx.fillStyle = '#22c55e';
+ctx.beginPath();
+ctx.arc(z.x, zY, 18, 0, Math.PI * 2);
+ctx.fill();
+} else if (stageMode === 3) {
+const zX = (z.lane + 0.5) * (w / 3);
+ctx.fillStyle = '#22c55e';
+ctx.beginPath();
+ctx.arc(zX, z.y, 18, 0, Math.PI * 2);
+ctx.fill();
+} else if (stageMode === 5) {
+z.floatOffset += 0.08;
+const floatX = Math.sin(z.floatOffset) * 25;
+const zX = (z.lane + 0.5) * (w / 3) + floatX;
+const zY = h * (0.2 + z.z * 0.65);
+const scale = 0.5 + z.z * 0.7;
+// String connecting balloon to zombie body
+ctx.strokeStyle = '#e2e8f0';
+ctx.lineWidth = 1.5;
+ctx.beginPath();
+ctx.moveTo(zX, zY - 18 * scale);
+ctx.lineTo(zX, zY + 4 * scale);
+ctx.stroke();
+// Balloon Body (Purple/Magenta)
+ctx.fillStyle = '#a855f7';
+ctx.beginPath();
+ctx.ellipse(zX, zY - 38 * scale, 16 * scale, 20 * scale, 0, 0, Math.PI * 2);
+ctx.fill();
+// Balloon Highlight
+ctx.fillStyle = '#c084fc';
+ctx.beginPath();
+ctx.ellipse(zX - 4 * scale, zY - 44 * scale, 4 * scale, 7 * scale, Math.PI / 6, 0, Math.PI * 2);
+ctx.fill();
+// Zombie Body (hanging below)
+ctx.fillStyle = '#22c55e';
+ctx.beginPath();
+ctx.arc(zX, zY + 14 * scale, 10 * scale, 0, Math.PI * 2);
+ctx.fill();
+// Zombie Head
+ctx.fillStyle = '#15803d';
+ctx.beginPath();
+ctx.arc(zX, zY + 4 * scale, 7 * scale, 0, Math.PI * 2);
+ctx.fill();
+// Hanging Legs
+ctx.strokeStyle = '#22c55e';
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.moveTo(zX - 3, zY + 22 * scale);
+ctx.lineTo(zX - 6, zY + 30 * scale);
+ctx.moveTo(zX + 3, zY + 22 * scale);
+ctx.lineTo(zX + 6, zY + 30 * scale);
+ctx.stroke();
+}
+});
+// Draw arrows
+ctx.fillStyle = '#f59e0b';
+activeArrows.forEach(a => {
+ctx.fillRect(a.x - 4, a.y - 4, 8, 8);
+});
+// Particles
+particles.forEach(p => {
+ctx.fillStyle = p.color;
+ctx.globalAlpha = p.life;
+ctx.fillRect(p.x, p.y, 4, 4);
+ctx.globalAlpha = 1.0;
+});
+}
+function gameOver() {
+gameState = 'GAMEOVER';
+if (timerInterval) clearInterval(timerInterval);
+document.getElementById('overlay').classList.remove('hidden');
+document.querySelector('.overlay-title').innerText = "ゲームオーバー";
+document.querySelector('.overlay-desc').innerText = ⁠生存距離: ${Math.floor(distanceRun)}m | 生存時間: ${gameTime}秒⁠;
+}
+window.startGame = function(selectedStage = 1) {
+initAudio();
+stageMode = selectedStage;
+playerHearts = 5;
+distanceRun = 0;
+gameTime = 0;
+stageTimer = 0;
+bowAmmo = 5;
+arrowRecoveryTimer = 0;
+zombies = [];
+activeArrows = [];
+particles = [];
+playerLane = 1;
+playerTargetLane = 1;
+updateUI();
+document.getElementById('overlay').classList.add('hidden');
+document.getElementById('pause-overlay').classList.add('hidden');
+document.getElementById('config-overlay').classList.add('hidden');
+const stageNames = {
+1: "第1ステージ (ラッシュ)",
+2: "第2ステージ (サイド)",
+3: "第3ステージ (落下)",
+4: "第4ステージ (マインカート)",
+5: "第5ステージ (3D浮遊風船)"
+};
+showBanner(⁠✨ ${stageNames[stageMode]} スタート！ ✨⁠);
+if (timerInterval) clearInterval(timerInterval);
+timerInterval = setInterval(() => {
+if (gameState === 'PLAYING') {
+gameTime++;
+stageTimer++;
+if (bowAmmo < 5) {
+arrowRecoveryTimer++;
+if (arrowRecoveryTimer >= 10) {
+arrowRecoveryTimer = 0;
+bowAmmo++;
+}
+} else {
+arrowRecoveryTimer = 0;
+}
+updateUI();
+if (stageTimer >= 45) {
+stageTimer = 0;
+stageMode = (stageMode % 5) + 1;
+showBanner(⁠✨ 第${stageMode}ステージへ移行！ ✨⁠);
+}
+}
+}, 1000);
+gameState = 'PLAYING';
+};
+function initApp() {
+canvas = document.getElementById('gameCanvas');
+if (canvas) ctx = canvas.getContext('2d');
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+const container = document.getElementById('canvas-container');
+container.addEventListener('touchstart', (e) => {
+if (e.touches.length > 0) handlePointerStart(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: true });
+container.addEventListener('touchmove', (e) => {
+if (e.touches.length > 0) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: true });
+container.addEventListener('touchend', handlePointerEnd, { passive: true });
+container.addEventListener('mousedown', (e) => handlePointerStart(e.clientX, e.clientY));
+container.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
+container.addEventListener('mouseup', handlePointerEnd);
+document.getElementById('btn-start-game').addEventListener('click', () => window.startGame(1));
+document.getElementById('pause-btn').addEventListener('click', () => {
+if (gameState === 'PLAYING') {
+gameState = 'PAUSED';
+document.getElementById('pause-overlay').classList.remove('hidden');
+}
+});
+document.getElementById('resume-btn').addEventListener('click', () => {
+if (gameState === 'PAUSED') {
+gameState = 'PLAYING';
+document.getElementById('pause-overlay').classList.add('hidden');
+}
+});
+document.getElementById('config-btn').addEventListener('click', () => {
+document.getElementById('config-overlay').classList.remove('hidden');
+});
+document.getElementById('close-config-btn').addEventListener('click', () => {
+document.getElementById('config-overlay').classList.add('hidden');
+});
+document.getElementById('setting-volume').addEventListener('input', (e) => {
+gameConfig.volume = parseInt(e.target.value) / 100;
+document.getElementById('val-volume').innerText = ⁠${e.target.value}%⁠;
+});
+document.getElementById('setting-sensitivity').addEventListener('input', (e) => {
+gameConfig.sensitivityLevel = parseInt(e.target.value);
+document.getElementById('val-sensitivity').innerText = ⁠段階 ${e.target.value}⁠;
+});
+function loop() {
+updateGame();
+drawGame();
+requestAnimationFrame(loop);
+}
+loop();
+}
+if (document.readyState === 'loading') {
+document.addEventListener('DOMContentLoaded', initApp);
+} else {
+initApp();
+}
+</script>
+</body>
+</html>
